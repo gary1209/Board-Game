@@ -1,3 +1,4 @@
+#include <map>
 #include <algorithm>
 #include <ctime>
 #include <cstdio>
@@ -164,7 +165,28 @@ bool check_end(){
   return false;
 }
 
+bool check(int a, int b){
+//return true if should mark
+  return true;
+}
+
 void check_and_mark(){
+  map<int, int> marked;
+  if(check(pos_x - 1, pos_y - 1)) marked.insert(pair<int, int>(pos_x -1, pos_y -1));
+  if(check(pos_x + 1, pos_y - 1)) marked.insert(pair<int, int>(pos_x -1, pos_y -1));
+  if(check(pos_x    , pos_y - 1)) marked.insert(pair<int, int>(pos_x -1, pos_y -1));
+  if(check(pos_x - 1, pos_y + 1)) marked.insert(pair<int, int>(pos_x -1, pos_y -1));
+  if(check(pos_x    , pos_y + 1)) marked.insert(pair<int, int>(pos_x -1, pos_y -1));
+  if(check(pos_x + 1, pos_y + 1)) marked.insert(pair<int, int>(pos_x -1, pos_y -1));
+  if(check(pos_x - 1, pos_y    )) marked.insert(pair<int, int>(pos_x -1, pos_y -1));
+  if(check(pos_x    , pos_y    )) marked.insert(pair<int, int>(pos_x -1, pos_y -1));
+  if(check(pos_x + 1, pos_y    )) marked.insert(pair<int, int>(pos_x -1, pos_y -1));
+  map<int, int>::iterator iter;
+  for(iter = marked.begin(); iter != marked.end(); iter++){
+    board[iter->first][iter->second] = -1;
+    marked.erase(iter);
+  }
+  assert(marked.empty());
   return;
 }
 
