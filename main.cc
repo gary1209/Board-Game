@@ -14,17 +14,18 @@
 
 using namespace std;
 
-//??static bool UserFirst;
+typedef std::pair<int, int> PII;
+
 static int UserFirst;
 static int BoardSize;
 
-enum turn {
-  human = 2,
-  ai    = 1,
-  empty = 0,
+enum Player {
+  FIRST = 0,
+  SECOND = 1,
+  NOBODY = 2
 };
 
-turn who;
+Player who;
 
 // 下一步要下的位置跟值
 int pos_x;
@@ -32,283 +33,150 @@ int pos_y;
 int val;
 
 int board[6][6];//下了哪個棋，0是還沒下，1是已經爆掉
-turn board2[6][6];//誰下的
-std::vector<int> u4 = {2,3,5,8,13};
-std::vector<int> a4 = {2,3,5,8,13};
-std::vector<int> u6 = {2,2,3,3,5,5,8,8,8,13,13};
-std::vector<int> a6 = {2,2,3,3,5,5,8,8,8,13,13};
+Player board2[6][6];//誰下的
+std::vector<int> avai[2];
+const std::vector<int> AVAI4 = {2,3,5,8,13};
+const std::vector<int> AVAI6 = {2,2,3,3,5,5,8,8,8,13,13};
 
+static inline bool inside(int x, int y){
+  return x >=0 && y>=0 && x< BoardSize && y < BoardSize;
+}
+
+bool check(int a, int b){
+//return true if should mark
+  int sum = 0;
+  for(int i = -1; i < 2; i++){
+    for(int j = -1; j < 2; j++){
+      if(inside(a+i, b+j) && board[a+i][b+j] > 0) sum+=board[a+i][b+j];
+    }
+  }
+  if(DEBUG) printf("(%d,%d) sum: %d\n", a, b, sum);
+  if(DEBUG) printf("board[a][b]: %d\n", board[a][b]);
+  if(sum <= 15) return false;
+  if(board[a][b] == 0) return false;
+  return true;
+}
 
 void print_board(){
   for(int i = 0; i < BoardSize; i++){
     for(int j = 0; j < BoardSize; j++){
       if(board[i][j] == 0)printf(" O ");
       else if(board[i][j] == -1)printf(" X ");
-      else if(board2[i][j] == human) printf(BLUE"%2d " NONE,board[i][j]);
+      else if(board2[i][j] == FIRST) printf(BLUE"%2d " NONE,board[i][j]);
       else printf(RED"%2d " NONE, board[i][j]);
 
     }
     printf("\n");
   };
   printf("[User chess pieces]: [ ");
-  if(BoardSize == 4){
-//    printf("size of vector: %lu\n",u4.size());
-    for(auto t = u4.begin(); t != u4.end(); t++){
-      printf("%d ", *t);
-    }
-  }
-  if(BoardSize == 6){
-    for(auto t = u6.begin(); t != u6.end(); t++){
-      printf("%d ", *t);
-    }
+  for(auto p : avai[UserFirst ? FIRST : SECOND]){
+    printf("%d ", p);
   }
   puts("]");
   
   printf("[  AI chess pieces]: [ ");
-  if(BoardSize == 4){
-    for(auto t = a4.begin(); t != a4.end(); t++){
-      printf("%d ", *t);
-    }
-  }
-  if(BoardSize == 6){
-    for(auto t = a6.begin(); t != a6.end(); t++){
-      printf("%d ", *t);
-    }
+  for(auto p : avai[!UserFirst ? FIRST : SECOND]){
+    printf("%d ", p);
   }
   puts("]");
 }
 
 bool isHuman(){
-  if(who == human) return true;
-  return false;
+  return (who == FIRST) == UserFirst;
 }
 
 
 
 bool check_avai(){
-  if(pos_x >= BoardSize || pos_y >=BoardSize) return false;
+  if(pos_x < 0 || pos_y < 0 || pos_x >= BoardSize || pos_y >=BoardSize) return false;
   if(board[pos_x][pos_y]!=0) return false;
-  if(BoardSize == 4){
-    if(isHuman()){
-      if(std::find(u4.begin(), u4.end(), val) != u4.end()){
-        return true;
-      }else{
-        return false;
-      }
-    }else{
-    //is AI
-      if(std::find(a4.begin(), a4.end(), val) != a4.end()){
-        return true;
-      }else{
-        return false;
-      }
-    }
-  }else{
-  //BoardSize == 6
-    if(isHuman()){
-      if(std::find(u6.begin(), u6.end(), val) != u6.end()){
-        return true;
-      }else{
-        return false;
-      }
-    }else{
-    //is AI
-      if(std::find(a6.begin(), a6.end(), val) != a6.end()){
-        return true;
-      }else{
-        return false;
-      }
-    }
-  }
-  return true;
+  auto &v = avai[who];
+  return std::find(v.begin(), v.end(), val) != v.end();
 }
 
 void ai_search(){
-  if(BoardSize == 4) val = a4.front();
-  if(BoardSize == 6) val = a6.front();
+  val = avai[who].front();
   while(true){
-    if(BoardSize == 4){
-      int min = 0;
-      int max = 3;
-      pos_x = rand() % 4;
-      pos_y = rand() % 4;
+      pos_x = rand() % BoardSize;
+      pos_y = rand() % BoardSize;
       if(check_avai()) break;
-    }
-    if(BoardSize == 6){
-      int min = 0;
-      int max = 6;
-      pos_x = rand() % 6;
-      pos_y = rand() % 6;
-      if(check_avai()) break;
-    }
   }
 }
 
 void place(){
   board[pos_x][pos_y] = val;
   board2[pos_x][pos_y] = who;
-  //刪除要下的棋
-  if(isHuman() && BoardSize == 4){
-    for(int i = 0; i < u4.size(); i++){
-      if(u4[i] == val) u4.erase(u4.begin()+i);
+  auto &v = avai[who];
+  v.erase(std::find(v.begin(), v.end(), val));
+  if(isHuman()){
+    printf("User : (%d,%d,%d)\n", pos_x, pos_y, val);
+  }else{
+    printf("AI : (%d,%d,%d)\n", pos_x, pos_y, val);
+  }
+  vector<PII> marked;
+  for(int i = -1; i < 2; i++){
+    for(int j = -1; j < 2; j++){
+      if(check(pos_x + i, pos_y + j)){
+        marked.emplace_back(pos_x + i, pos_y + j);
+      }
     }
   }
-  if(isHuman() && BoardSize == 6){
-    for(int i = 0; i < u6.size(); i++){
-      if(u6[i] == val) u6.erase(u6.begin()+i);
-    }
+  for(auto p : marked) {
+    board[p.first][p.second] = -1;
+    board2[p.first][p.second] = NOBODY;
   }
-  if(!isHuman() && BoardSize == 4){
-    for(int i = 0; i < a4.size(); i++){
-      if(a4[i] == val) a4.erase(a4.begin()+i);
-    }
-  }
-  if(!isHuman() && BoardSize == 6){
-    for(int i = 0; i < a6.size(); i++){
-      if(a6[i] == val) a6.erase(a6.begin()+i);
-    }
-  }
-  if(isHuman())printf("User : (%d,%d,%d)\n", pos_x, pos_y, val);
-  else printf("AI : (%d,%d,%d)\n", pos_x, pos_y, val);
+  marked.clear();
 }
 
 bool check_end(){
-  if(BoardSize == 4 && u4.size() == 0 && a4.size() == 0) return true;
-  if(BoardSize == 6 && u6.size() == 0 && a6.size() == 0) return true;
-  return false;
+  return (avai[0].empty() && avai[1].empty());
 }
 
-bool inside(int x, int y){
-  if(x >=0 && y>=0 && x< BoardSize && y < BoardSize) return true;
-  return false;
-}
 
-bool check(int a, int b){
-//return true if should mark
-  int sum = 0;
-  if(inside(a+1,b+1) && board[a+1][b+1] > 0) sum+=board[a+1][b+1];
-  if(inside(a+1,b)   && board[a+1][b]   > 0) sum+=board[a+1][b];
-  if(inside(a+1,b-1) && board[a+1][b-1] > 0) sum+=board[a+1][b-1];
-  if(inside(a,b+1)   && board[a][b+1]   > 0) sum+=board[a][b+1];
-  if(inside(a,b-1)   && board[a][b-1]   > 0) sum+=board[a][b-1];
-  if(inside(a,b)     && board[a][b]     > 0) sum+=board[a][b];
-  if(inside(a-1,b+1) && board[a-1][b+1] > 0) sum+=board[a-1][b+1];
-  if(inside(a-1,b-1) && board[a-1][b-1] > 0) sum+=board[a-1][b-1];
-  if(inside(a-1,b)   && board[a-1][b]   > 0) sum+=board[a-1][b];
-  if(DEBUG) printf("(%d,%d) sum: %d\n", a, b, sum);
-  if(DEBUG) printf("board[a][b]: %d\n", board[a][b]);
-  if(sum <= 15) return false;
-  if(board[a][b] == 0) return false;
-  if(DEBUG) printf("!!!(%d,%d) sum: %d\n", a, b, sum);
-
-  return true;
-}
-
-struct pos{
-  int x;
-  int y;
-}ker;
-
-void check_and_mark(){
-  vector<pos> marked;
-  
-  if(check(pos_x - 1, pos_y - 1)) {
-    ker.x = pos_x - 1;
-    ker.y = pos_y - 1;
-    marked.push_back(ker);
-  }
-  if(check(pos_x + 1, pos_y - 1)) {
-    ker.x = pos_x + 1;
-    ker.y = pos_y - 1;
-    marked.push_back(ker);
-  }
-  if(check(pos_x    , pos_y - 1)) {
-    ker.x = pos_x;
-    ker.y = pos_y - 1;
-    marked.push_back(ker);
-  }
-  if(check(pos_x - 1, pos_y + 1)) {
-    ker.x = pos_x - 1;
-    ker.y = pos_y + 1;
-    marked.push_back(ker);
-  }
-  if(check(pos_x    , pos_y + 1)) {
-    ker.x = pos_x;
-    ker.y = pos_y + 1;
-    marked.push_back(ker);
-  }
-  if(check(pos_x + 1, pos_y + 1)) {
-    ker.x = pos_x + 1;
-    ker.y = pos_y + 1;
-    marked.push_back(ker);
-  }
-  if(check(pos_x - 1, pos_y    )) {
-    ker.x = pos_x - 1;
-    ker.y = pos_y;
-    marked.push_back(ker);
-  }
-  if(check(pos_x    , pos_y    )) {
-    ker.x = pos_x;
-    ker.y = pos_y;
-    marked.push_back(ker);
-  }
-  if(check(pos_x + 1, pos_y    )) {
-    ker.x = pos_x + 1;
-    ker.y = pos_y;
-    marked.push_back(ker);
-  }
-  
-  //map<int, int>::iterator iter;
-  // for(iter = marked.begin(); iter != marked.end(); iter++){
-  //   printf("board[%d][%d] => X\n", iter->first, iter->second);
-  //   board[iter->first][iter->second] = -1;
-  //   marked.erase(iter);
-  // }
-  // assert(marked.empty());
-  vector <pos>::iterator iter;
-  for(iter=marked.begin(); iter!=marked.end(); iter++){
-    board[iter->x][iter->y] = -1;
-  }
-  marked.clear();
-  return;
-}
 
 void show_winner(){
-  int ai_max = 0;
-  int ai_score = 0;
-  int user_max = 0;
-  int user_score = 0;
+  int score[2], smax[2] = {};
   for(int i = 0; i < BoardSize; i++){
     for(int j = 0; j < BoardSize; j++){
-      if(board[i][j] != -1 && board2[i][j] == human){
-        user_score+=board[i][j];
-        if(board[i][j] > user_max) user_max = board[i][j];
-      }
-      if(board[i][j] != -1 && board2[i][j] == ai){
-        ai_score+=board[i][j];
-        if(board[i][j] > ai_max) ai_max = board[i][j];
-      }
+      if(board[i][j] <= 0) continue;
+      score[board2[i][j]]+=board[i][j];
+      if(board[i][j] > smax[board2[i][j]]) smax[board2[i][j]] = board[i][j];
     }
   }
-  print_board();
-  if(1) printf("========END========\nAI's score: %d\nUser's score: %d\n", ai_score, user_score);
-  if(ai_score > user_score) printf("AI Win!\n");
-  if(ai_score < user_score) printf("User Win!\n");
-  if(ai_score == user_score){
-    if(ai_max > user_max) printf("AI Win!\n");
-    if(ai_max < user_max) printf("User Win!\n");
-    if(ai_max == user_max) printf("Draw!\n");
+  
+  printf("========END========\nFIRST score: %d\nSECOND score: %d\n", score[FIRST], score[SECOND]);
+  Player winner;
+  if (score[FIRST] > score[SECOND]) {
+    winner = FIRST;
+  } else if (score[FIRST] < score[SECOND]) {
+    winner = SECOND;
+  } else if (smax[FIRST] > smax[SECOND]) {
+    winner = FIRST;
+  } else if (smax[FIRST] < smax[SECOND]) {
+    winner = SECOND;
+  } else {
+    winner = NOBODY;
   }
-  return;
+  if (winner == NOBODY) {
+    printf("Draw!\n");
+  } else if ((winner == FIRST) == UserFirst) {
+    printf("User Win!\n");
+  } else {
+    printf("AI Win!\n");
+  }
 }
 
 void play(){
   if(DEBUG){
-    if(who == human) printf(RED"It's human's turn!\n" NONE);
-    if(who == ai) printf(RED"It's AI's turn\n" NONE);
+    if(isHuman()) {
+      printf(RED"It's human's turn!\n" NONE);
+    }
+    else{
+      printf(RED"It's AI's turn\n" NONE);
+    }
   }
+  print_board();
   while(true){
-    print_board();
     if(isHuman()){
       printf("Input (row, col, weight): ");
       scanf("%d%d%d",&pos_x, &pos_y, &val);
@@ -320,23 +188,33 @@ void play(){
       continue;
     }
     place();
-    check_and_mark();
+    print_board();
     if(check_end()) break;
-    //change player
-    if(isHuman()) who = ai;
-    else who = human;
+    who = (who == FIRST ? SECOND : FIRST);
   }
 }
 
 void init(){
+  for(int i = 0; i < 6; i++){
+    for(int j = 0; j < 6; j++){
+      board[i][j] = 0;
+      board2[i][j] = NOBODY;
+    }
+  }
   printf("User first? (0/1):");
   scanf("%d", &UserFirst);
   printf("Board Size? (4/6):");
   scanf("%d", &BoardSize);
   assert(UserFirst == 0 || UserFirst ==1);
   assert(BoardSize == 4 || BoardSize ==6);
-  if(UserFirst) who = human;
-  else who = ai;
+  if(BoardSize == 4) {
+    avai[0] = AVAI4;
+    avai[1] = AVAI4;
+  } else {
+    avai[0] = AVAI6;
+    avai[1] = AVAI6;
+  }
+  who = FIRST;
   if(DEBUG) printf(RED"%d %d\n" NONE, UserFirst, BoardSize);
 }
 
