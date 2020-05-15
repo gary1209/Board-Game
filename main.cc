@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <map>
 #include <vector>
+#include <chrono>
 
 #define DEBUG 0
 #define NONE "\033[m"
@@ -13,7 +14,7 @@
 #define BLUE "\033[0;34m"
 #define WHITE "\033[1;30m"
 #define BLACK "\033[1;37m"
-
+#define TIME_SPAN 3000
 using namespace std;
 
 
@@ -184,8 +185,19 @@ int eval(){
   return (w1 * s1) + (w2 * s2) + (w3 * s3) + (w4 * s4);
 }
 
+chrono::steady_clock::time_point t1;
 
-int negamax2(int level, int alpha, int beta){
+
+int negamax2(int level, int alpha, int beta, int stop){
+  chrono::steady_clock::time_point t2 = chrono::steady_clock::now();
+  auto time_span = chrono::duration_cast<chrono::milliseconds>(t2 - t1);
+  int T = time_span.count();
+  // printf("time spend: %d\n", time_span.count());
+  if(T > TIME_SPAN) {
+    // puts("KKKK");
+    printf("T=%d\n",T);
+    throw 9; //隨便回傳一個分數，反正也會被丟掉
+  }
   if(check_end()) {
     auto p = get_winner();
     if(p == who) return +1000000;
@@ -193,7 +205,7 @@ int negamax2(int level, int alpha, int beta){
     else return -1000000;
   }
   struct Position ker;
-  if(level >= 3) return eval();
+  if(level > stop) return eval();
   // if(BoardSize == 4 && level >= 5) return eval();
   // if(BoardSize == 6 && level >= 9) return eval();
 
@@ -209,12 +221,17 @@ int negamax2(int level, int alpha, int beta){
         if(check_avai(ker)) {
           place(ker, 0);
           // printf("level:%d alpha:%d beta:%d\n", level , alpha , beta);
-          int tmp = -negamax2(level + 1, -beta, -alpha);
+          int tmp = -negamax2(level + 1, -beta, -alpha, stop);
           // printf("tmp %d !!!\n", tmp);
           undo();
+// if(level == 0) printf("(tmp, score, ker) = (%d, %d, (%d,%d,%d))\n", tmp, score, ker.x, ker.y,ker.val);
           if(tmp > score) {
             score = tmp;
-            if(level == 0) N = ker;
+            if(level == 0) {
+              // puts("@@@");
+              N = ker;
+// printf("[%d %d %d]\n",N.x,N.y,N.val);
+            }
             if (tmp > alpha) {
               if (tmp >= beta) break;
               alpha = tmp;
@@ -222,8 +239,10 @@ int negamax2(int level, int alpha, int beta){
           }
         }
       }
+// printf("(%d %d %d]\n",N.x,N.y,N.val);
     }
   }
+// printf("{%d %d %d]\n",N.x,N.y,N.val);
   // printf("HERE! level:%d alpha:%d beta:%d score:%d\n", level , alpha , beta, score);
   return score;
 }
@@ -266,13 +285,38 @@ bool look_up(){
 }
 
 Position ai_search2(){
+  Position G; 
+  int stop = 1;
+  // puts("START");
   if(step < 4) {
     step++;
     if(look_up()) return N;
   }
-  // puts("kkk");
-  negamax2(0, -1000000, 1000000);
-  return N;
+  int n;
+  t1 = chrono::steady_clock::now();
+  auto s = killed.size();
+  // puts("KER");
+  while(true){
+    try {
+        n = negamax2(0, -1000000, 1000000, stop++);
+        // printf("HHH:%d, %d\n",n, stop);
+
+    }
+    catch (...) {
+      // puts("catch!");
+      // TODO
+      // undo 需要正常運作
+      while(killed.size() > s){
+        undo();
+      }
+      break;
+    }
+    // printf("score %d, stop %d\n", n, stop);
+    G = N;
+    if(abs(n) >= 1000000) break;
+  }
+  // printf("next: %d, %d, %d\n", G.x, G.y, G.val);
+  return G;
 }
 
 Position ai_search(){
@@ -366,6 +410,7 @@ void play(){
     }
   }
   print_board();
+
   while(true){
     struct Position next;
 
@@ -379,7 +424,7 @@ void play(){
     if(!check_avai(next)){
       puts("Not valid position!\n");
       // exit(0);
-      // assert(isHuman());
+      assert(isHuman());
       continue;
     }
     place(next, 1);
